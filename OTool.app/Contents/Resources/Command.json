@@ -1,0 +1,150 @@
+{
+  "COMMAND_LIST": [
+    {
+      "NAME": "OTool",
+      "NOTES": "Main command: one window per dropped/opened Mach-O file or bundle. OTool.init (INIT_SUBCOMMAND_ID) discovers binaries and seeds per-window state; LoadableView viewDidLoad handlers populate the UI.",
+      "ACTIVATION_MODE": "act_file_or_folder",
+      "EXECUTION_MODE": "exe_script_file",
+      "OPEN_OBJECT_DIALOG": {
+        "MESSAGE": "Select a Mach-O binary, app, framework, or bundle to inspect",
+        "BUTTON_PROMPT": "Inspect",
+        "ALLOW_MULTIPLE_ITEMS": true
+      },
+      "ACTIONUI_WINDOW": {
+        "JSON_NAME": "OTool",
+        "IS_BLOCKING": false,
+        "INIT_SUBCOMMAND_ID": "OTool.init",
+        "END_CANCEL_SUBCOMMAND_ID": "OTool.cancel"
+      },
+      "REQUIRED_OMC_VERSION": "5.1",
+      "REQUIRED_MAC_OS_MIN_VERSION": "14.6"
+    },
+    {
+      "NAME": "OTool",
+      "NOTES": "Window init: discover Mach-O binaries, seed per-window state (runs before the window appears)",
+      "COMMAND_ID": "OTool.init",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "NOTES": "App lifecycle: clean up all leftover state directories",
+      "COMMAND_ID": "app.will.terminate",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "NOTES": "Sidebar LoadableView loaded: populate binary list",
+      "COMMAND_ID": "OTool.sidebar.load",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "NOTES": "Content LoadableView loaded: header, arch picker",
+      "COMMAND_ID": "OTool.content.load",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "COMMAND_ID": "OTool.binary.selected",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "COMMAND_ID": "OTool.sidebar.filter",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "COMMAND_ID": "OTool.arch.changed",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "COMMAND_ID": "OTool.tab.changed",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "NOTES": "Libraries tab: otool -L / -D",
+      "COMMAND_ID": "OTool.libs.load",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "NOTES": "Headers tab: otool -hv + lipo -detailed_info",
+      "COMMAND_ID": "OTool.headers.load",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "NOTES": "Load Commands tab: parsed otool -l",
+      "COMMAND_ID": "OTool.loadcmds.load",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "COMMAND_ID": "OTool.loadcmds.filter",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "COMMAND_ID": "OTool.loadcmds.selected",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "NOTES": "Sections tab: pickers from cached otool -l parse",
+      "COMMAND_ID": "OTool.sections.load",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "COMMAND_ID": "OTool.sections.segment.changed",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "COMMAND_ID": "OTool.sections.section.changed",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "NOTES": "Disassembly tab: otool -tV (lazy)",
+      "COMMAND_ID": "OTool.disasm.load",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "COMMAND_ID": "OTool.disasm.search",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "NOTES": "Symbols tab: nm + otool -Iv (lazy)",
+      "COMMAND_ID": "OTool.symbols.load",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "COMMAND_ID": "OTool.symbols.filter",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "COMMAND_ID": "OTool.reveal.finder",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "COMMAND_ID": "OTool.copy.output",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "NOTES": "Window closed: remove this window's state directory",
+      "COMMAND_ID": "OTool.cancel",
+      "EXECUTION_MODE": "exe_script_file"
+    }
+  ],
+  "VERSION": 2
+}

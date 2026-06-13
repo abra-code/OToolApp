@@ -1,0 +1,166 @@
+{
+  "type": "HSplitView",
+  "properties": {
+    "frame": {
+      "maxWidth": "infinity",
+      "maxHeight": "infinity"
+    }
+  },
+  "children": [
+    {
+      "type": "VStack",
+      "properties": {
+        "spacing": 0,
+        "frame": {
+          "minWidth": 380,
+          "idealWidth": 500,
+          "maxHeight": "infinity"
+        }
+      },
+      "children": [
+        {
+          "type": "TextField",
+          "id": 51,
+          "properties": {
+            "prompt": "Filter commands…",
+            "valueChangeActionID": "OTool.loadcmds.filter",
+            "padding": {
+              "leading": 8,
+              "trailing": 8,
+              "top": 6,
+              "bottom": 4
+            }
+          }
+        },
+        {
+          "type": "Table",
+          "id": 52,
+          "properties": {
+            "columns": [
+              "#",
+              "Command",
+              "Summary"
+            ],
+            "columnTypes": [
+              {
+                "viewType": "Text"
+              },
+              {
+                "viewType": "Text"
+              },
+              {
+                "viewType": "Text"
+              }
+            ],
+            "widths": [
+              36,
+              190,
+              270
+            ],
+            "actionID": "OTool.loadcmds.selected",
+            "frame": {
+              "maxWidth": "infinity",
+              "maxHeight": "infinity"
+            },
+            "minWidths": [
+              16,
+              160,
+              100
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "type": "VStack",
+      "properties": {
+        "spacing": 8,
+        "padding": 10,
+        "frame": {
+          "maxWidth": "infinity",
+          "maxHeight": "infinity"
+        }
+      },
+      "children": [
+        {
+          "type": "GroupBox",
+          "id": 53,
+          "properties": {
+            "title": "Fields"
+          },
+          "children": [
+            {
+              "type": "Table",
+              "id": 54,
+              "properties": {
+                "columns": [
+                  "Key",
+                  "Value"
+                ],
+                "widths": [
+                  170,
+                  330
+                ],
+                "columnHeadersVisibility": "hidden",
+                "frame": {
+                  "maxWidth": "infinity",
+                  "minHeight": 140,
+                  "maxHeight": "infinity"
+                },
+                "minWidths": [
+                  100,
+                  120
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "GroupBox",
+          "id": 55,
+          "properties": {
+            "title": "Sections",
+            "hidden": true
+          },
+          "children": [
+            {
+              "type": "Table",
+              "id": 56,
+              "properties": {
+                "columns": [
+                  "Section",
+                  "Addr",
+                  "Size",
+                  "Offset",
+                  "Align",
+                  "Flags"
+                ],
+                "widths": [
+                  100,
+                  150,
+                  150,
+                  60,
+                  55,
+                  90
+                ],
+                "frame": {
+                  "maxWidth": "infinity",
+                  "minHeight": 110,
+                  "maxHeight": "infinity"
+                },
+                "minWidths": [
+                  60,
+                  140,
+                  140,
+                  45,
+                  40,
+                  80
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 0,
+    "navigationSplitViewColumnWidth": {
+      "min": 210,
+      "ideal": 270,
+      "max": 420
+    }
+  },
+  "children": [
+    {
+      "type": "TextField",
+      "id": 5,
+      "properties": {
+        "prompt": "Filter binaries…",
+        "valueChangeActionID": "OTool.sidebar.filter",
+        "padding": {
+          "leading": 8,
+          "trailing": 8,
+          "top": 6,
+          "bottom": 6
+        }
+      }
+    },
+    {
+      "type": "Table",
+      "id": 10,
+      "properties": {
+        "columns": [
+          "Binary",
+          "Type"
+        ],
+        "columnTypes": [
+          {
+            "viewType": "Text"
+          },
+          {
+            "viewType": "Text"
+          }
+        ],
+        "widths": [
+          170,
+          60
+        ],
+        "columnHeadersVisibility": "hidden",
+        "actionID": "OTool.binary.selected",
+        "frame": {
+          "maxWidth": "infinity",
+          "maxHeight": "infinity"
+        },
+        "minWidths": [
+          80,
+          40
+        ]
+      }
+    },
+    {
+      "type": "HStack",
+      "properties": {
+        "padding": 4
+      },
+      "children": [
+        {
+          "type": "Spacer"
+        },
+        {
+          "type": "Button",
+          "id": 17,
+          "properties": {
+            "systemImage": "arrow.up.right.square",
+            "buttonStyle": "plain",
+            "actionID": "OTool.reveal.finder",
+            "disabled": true
+          }
+        }
+      ]
+    }
+  ]
+}

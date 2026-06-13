@@ -1,0 +1,84 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 8,
+    "padding": 12,
+    "frame": {
+      "maxWidth": "infinity",
+      "maxHeight": "infinity"
+    }
+  },
+  "children": [
+    {
+      "type": "GroupBox",
+      "properties": {
+        "title": "Mach-O Header"
+      },
+      "children": [
+        {
+          "type": "Table",
+          "id": 40,
+          "properties": {
+            "columns": [
+              "Field",
+              "Value"
+            ],
+            "widths": [
+              170,
+              430
+            ],
+            "columnHeadersVisibility": "hidden",
+            "frame": {
+              "maxWidth": "infinity",
+              "minHeight": 200,
+              "maxHeight": "infinity"
+            },
+            "minWidths": [
+              100,
+              120
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "type": "GroupBox",
+      "id": 41,
+      "properties": {
+        "title": "Fat / Universal Slices",
+        "hidden": true
+      },
+      "children": [
+        {
+          "type": "Table",
+          "id": 42,
+          "properties": {
+            "columns": [
+              "Arch",
+              "Offset",
+              "Size",
+              "Align"
+            ],
+            "widths": [
+              100,
+              110,
+              110,
+              110
+            ],
+            "frame": {
+              "maxWidth": "infinity",
+              "minHeight": 90,
+              "maxHeight": 220
+            },
+            "minWidths": [
+              60,
+              70,
+              70,
+              70
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

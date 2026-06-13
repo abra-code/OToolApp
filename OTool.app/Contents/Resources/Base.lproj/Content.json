@@ -1,0 +1,213 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 0,
+    "frame": {
+      "maxWidth": "infinity",
+      "maxHeight": "infinity"
+    }
+  },
+  "children": [
+    {
+      "type": "HStack",
+      "id": 200,
+      "properties": {
+        "spacing": 8,
+        "padding": {
+          "leading": 12,
+          "trailing": 12,
+          "top": 8,
+          "bottom": 8
+        }
+      },
+      "children": [
+        {
+          "type": "Image",
+          "id": 201,
+          "properties": {
+            "systemName": "doc.fill",
+            "foregroundStyle": "secondary"
+          }
+        },
+        {
+          "type": "Text",
+          "id": 202,
+          "properties": {
+            "text": "—",
+            "font": "headline"
+          }
+        },
+        {
+          "type": "Text",
+          "id": 203,
+          "properties": {
+            "text": "",
+            "font": "caption",
+            "foregroundStyle": "secondary"
+          }
+        },
+        {
+          "type": "Spacer"
+        },
+        {
+          "type": "Picker",
+          "id": 210,
+          "properties": {
+            "pickerStyle": "segmented",
+            "options": [
+              "arm64",
+              "x86_64"
+            ],
+            "hidden": true,
+            "actionID": "OTool.arch.changed"
+          }
+        }
+      ]
+    },
+    {
+      "type": "TabView",
+      "id": 20,
+      "properties": {
+        "frame": {
+          "maxWidth": "infinity",
+          "maxHeight": "infinity"
+        },
+        "actionID": "OTool.tab.changed"
+      },
+      "children": [
+        {
+          "type": "Tab",
+          "properties": {
+            "title": "Libraries",
+            "systemImage": "link",
+            "actionID": "OTool.tab.changed"
+          },
+          "content": {
+            "type": "LoadableView",
+            "id": 301,
+            "properties": {
+              "name": "TabLibraries.json",
+              "viewDidLoadActionID": "OTool.libs.load"
+            }
+          },
+          "id": 401
+        },
+        {
+          "type": "Tab",
+          "properties": {
+            "title": "Headers",
+            "systemImage": "doc.text",
+            "actionID": "OTool.tab.changed"
+          },
+          "content": {
+            "type": "LoadableView",
+            "id": 302,
+            "properties": {
+              "name": "TabHeaders.json",
+              "viewDidLoadActionID": "OTool.headers.load"
+            }
+          },
+          "id": 402
+        },
+        {
+          "type": "Tab",
+          "properties": {
+            "title": "Load Commands",
+            "systemImage": "list.bullet.indent",
+            "actionID": "OTool.tab.changed"
+          },
+          "content": {
+            "type": "LoadableView",
+            "id": 303,
+            "properties": {
+              "name": "TabLoadCmds.json",
+              "viewDidLoadActionID": "OTool.loadcmds.load"
+            }
+          },
+          "id": 403
+        },
+        {
+          "type": "Tab",
+          "properties": {
+            "title": "Sections",
+            "systemImage": "square.3.layers.3d",
+            "actionID": "OTool.tab.changed"
+          },
+          "content": {
+            "type": "LoadableView",
+            "id": 307,
+            "properties": {
+              "name": "TabSections.json",
+              "viewDidLoadActionID": "OTool.sections.load"
+            }
+          },
+          "id": 404
+        },
+        {
+          "type": "Tab",
+          "properties": {
+            "title": "Disasm",
+            "systemImage": "cpu",
+            "actionID": "OTool.tab.changed"
+          },
+          "content": {
+            "type": "LoadableView",
+            "id": 304,
+            "properties": {
+              "name": "TabDisasm.json",
+              "viewDidLoadActionID": "OTool.disasm.load"
+            }
+          },
+          "id": 405
+        },
+        {
+          "type": "Tab",
+          "properties": {
+            "title": "Symbols",
+            "systemImage": "textformat.abc",
+            "actionID": "OTool.tab.changed"
+          },
+          "content": {
+            "type": "LoadableView",
+            "id": 305,
+            "properties": {
+              "name": "TabSymbols.json",
+              "viewDidLoadActionID": "OTool.symbols.load"
+            }
+          },
+          "id": 406
+        }
+      ]
+    },
+    {
+      "type": "Divider"
+    },
+    {
+      "type": "HStack",
+      "id": 220,
+      "properties": {
+        "padding": {
+          "leading": 12,
+          "trailing": 12,
+          "top": 6,
+          "bottom": 8
+        }
+      },
+      "children": [
+        {
+          "type": "Button",
+          "id": 221,
+          "properties": {
+            "title": "Copy",
+            "systemImage": "doc.on.doc",
+            "buttonStyle": "bordered",
+            "actionID": "OTool.copy.output"
+          }
+        },
+        {
+          "type": "Spacer"
+        }
+      ]
+    }
+  ]
+}

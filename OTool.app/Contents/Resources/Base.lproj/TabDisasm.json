@@ -1,0 +1,63 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 0,
+    "frame": {
+      "maxWidth": "infinity",
+      "maxHeight": "infinity"
+    }
+  },
+  "children": [
+    {
+      "type": "HStack",
+      "properties": {
+        "padding": {
+          "leading": 10,
+          "trailing": 10,
+          "top": 6,
+          "bottom": 4
+        },
+        "spacing": 8
+      },
+      "children": [
+        {
+          "type": "TextField",
+          "id": 61,
+          "properties": {
+            "prompt": "Show function matching symbol… (Return; empty restores all)",
+            "actionID": "OTool.disasm.search",
+            "frame": {
+              "maxWidth": 360
+            }
+          }
+        },
+        {
+          "type": "Spacer"
+        },
+        {
+          "type": "ProgressView",
+          "id": 62,
+          "properties": {
+            "controlSize": "small",
+            "hidden": true
+          }
+        }
+      ]
+    },
+    {
+      "type": "TextEditor",
+      "id": 60,
+      "properties": {
+        "readOnly": true,
+        "font": {
+          "name": "Menlo",
+          "size": 11
+        },
+        "frame": {
+          "maxWidth": "infinity",
+          "maxHeight": "infinity"
+        }
+      }
+    }
+  ]
+}

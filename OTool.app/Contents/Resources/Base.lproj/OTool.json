@@ -1,0 +1,30 @@
+{
+  "type": "NavigationSplitView",
+  "id": 100,
+  "properties": {
+    "columnVisibility": "all",
+    "style": "balanced",
+    "frame": {
+      "minWidth": 1040,
+      "minHeight": 640,
+      "idealWidth": 1360,
+      "idealHeight": 800
+    }
+  },
+  "sidebar": {
+    "type": "LoadableView",
+    "id": 110,
+    "properties": {
+      "name": "Sidebar.json",
+      "viewDidLoadActionID": "OTool.sidebar.load"
+    }
+  },
+  "detail": {
+    "type": "LoadableView",
+    "id": 111,
+    "properties": {
+      "name": "Content.json",
+      "viewDidLoadActionID": "OTool.content.load"
+    }
+  }
+}

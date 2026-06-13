@@ -1,0 +1,103 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 0,
+    "frame": {
+      "maxWidth": "infinity",
+      "maxHeight": "infinity"
+    }
+  },
+  "children": [
+    {
+      "type": "HStack",
+      "properties": {
+        "padding": {
+          "leading": 10,
+          "trailing": 10,
+          "top": 8,
+          "bottom": 6
+        },
+        "spacing": 8
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Segment",
+            "foregroundStyle": "secondary"
+          }
+        },
+        {
+          "type": "Picker",
+          "id": 90,
+          "properties": {
+            "pickerStyle": "menu",
+            "options": [
+              "—"
+            ],
+            "actionID": "OTool.sections.segment.changed",
+            "frame": {
+              "minWidth": 130
+            }
+          }
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Section",
+            "foregroundStyle": "secondary"
+          }
+        },
+        {
+          "type": "Picker",
+          "id": 91,
+          "properties": {
+            "pickerStyle": "menu",
+            "options": [
+              "—"
+            ],
+            "actionID": "OTool.sections.section.changed",
+            "frame": {
+              "minWidth": 150
+            }
+          }
+        },
+        {
+          "type": "Spacer"
+        },
+        {
+          "type": "Text",
+          "id": 93,
+          "properties": {
+            "text": "",
+            "font": "caption",
+            "foregroundStyle": "secondary"
+          }
+        },
+        {
+          "type": "ProgressView",
+          "id": 94,
+          "properties": {
+            "controlSize": "small",
+            "hidden": true
+          }
+        }
+      ]
+    },
+    {
+      "type": "TextEditor",
+      "id": 92,
+      "properties": {
+        "readOnly": true,
+        "font": {
+          "name": "Menlo",
+          "size": 11
+        },
+        "frame": {
+          "maxWidth": "infinity",
+          "maxHeight": "infinity"
+        }
+      }
+    }
+  ]
+}

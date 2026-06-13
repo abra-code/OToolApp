@@ -1,0 +1,82 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 0,
+    "frame": {
+      "maxWidth": "infinity",
+      "maxHeight": "infinity"
+    }
+  },
+  "children": [
+    {
+      "type": "HStack",
+      "properties": {
+        "padding": {
+          "leading": 10,
+          "trailing": 10,
+          "top": 6,
+          "bottom": 4
+        }
+      },
+      "children": [
+        {
+          "type": "Text",
+          "id": 31,
+          "properties": {
+            "text": "",
+            "font": {
+              "size": 11,
+              "design": "monospaced"
+            },
+            "foregroundStyle": "secondary"
+          }
+        },
+        {
+          "type": "Spacer"
+        }
+      ]
+    },
+    {
+      "type": "Table",
+      "id": 30,
+      "properties": {
+        "columns": [
+          "",
+          "Library Path",
+          "Compat",
+          "Current"
+        ],
+        "columnTypes": [
+          {
+            "viewType": "Text"
+          },
+          {
+            "viewType": "Text"
+          },
+          {
+            "viewType": "Text"
+          },
+          {
+            "viewType": "Text"
+          }
+        ],
+        "widths": [
+          24,
+          480,
+          90,
+          90
+        ],
+        "frame": {
+          "maxWidth": "infinity",
+          "maxHeight": "infinity"
+        },
+        "minWidths": [
+          16,
+          120,
+          60,
+          60
+        ]
+      }
+    }
+  ]
+}

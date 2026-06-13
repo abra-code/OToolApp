@@ -1,0 +1,111 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 0,
+    "frame": {
+      "maxWidth": "infinity",
+      "maxHeight": "infinity"
+    }
+  },
+  "children": [
+    {
+      "type": "HStack",
+      "properties": {
+        "padding": {
+          "leading": 10,
+          "trailing": 10,
+          "top": 6,
+          "bottom": 4
+        },
+        "spacing": 8
+      },
+      "children": [
+        {
+          "type": "TextField",
+          "id": 71,
+          "properties": {
+            "prompt": "Filter symbols…",
+            "valueChangeActionID": "OTool.symbols.filter",
+            "frame": {
+              "maxWidth": 300
+            }
+          }
+        },
+        {
+          "type": "Picker",
+          "id": 72,
+          "properties": {
+            "pickerStyle": "menu",
+            "options": [
+              {
+                "title": "All",
+                "tag": "all"
+              },
+              {
+                "title": "Defined",
+                "tag": "defined"
+              },
+              {
+                "title": "Undefined (imported)",
+                "tag": "undef"
+              },
+              {
+                "title": "Indirect (stubs/GOT)",
+                "tag": "indirect"
+              }
+            ],
+            "actionID": "OTool.symbols.filter"
+          }
+        },
+        {
+          "type": "Spacer"
+        },
+        {
+          "type": "Text",
+          "id": 73,
+          "properties": {
+            "text": "",
+            "font": "caption",
+            "foregroundStyle": "secondary"
+          }
+        }
+      ]
+    },
+    {
+      "type": "Table",
+      "id": 70,
+      "properties": {
+        "columns": [
+          "Address",
+          "Type",
+          "Symbol"
+        ],
+        "columnTypes": [
+          {
+            "viewType": "Text"
+          },
+          {
+            "viewType": "Text"
+          },
+          {
+            "viewType": "Text"
+          }
+        ],
+        "widths": [
+          150,
+          60,
+          420
+        ],
+        "frame": {
+          "maxWidth": "infinity",
+          "maxHeight": "infinity"
+        },
+        "minWidths": [
+          90,
+          30,
+          120
+        ]
+      }
+    }
+  ]
+}
