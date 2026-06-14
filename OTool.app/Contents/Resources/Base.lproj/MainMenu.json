@@ -1,0 +1,9 @@
+[
+  {
+    "type": "CommandGroup",
+    "properties": {
+      "placement": "replacing",
+      "placementTarget": "new"
+    }
+  }
+]
