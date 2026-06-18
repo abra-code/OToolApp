@@ -13,12 +13,15 @@ __LIB_OTOOL_SH=1
 dialog_tool="$OMC_OMC_SUPPORT_PATH/omc_dialog_control"
 next_cmd="$OMC_OMC_SUPPORT_PATH/omc_next_command"
 notify_tool="$OMC_OMC_SUPPORT_PATH/notify"
+alert_tool="$OMC_OMC_SUPPORT_PATH/alert"
 window_uuid="$OMC_ACTIONUI_WINDOW_UUID"
 cmd_guid="$OMC_CURRENT_COMMAND_GUID"
 
 OTOOL=/usr/bin/otool
 LIPO=/usr/bin/lipo
 NM=/usr/bin/nm
+CXXFILT=/usr/bin/c++filt
+XCRUN=/usr/bin/xcrun
 
 # ──────────────────────────────────────────────────────────────
 # Control IDs (match ids in Base.lproj/*.json)
@@ -47,15 +50,23 @@ LC_TABLE_ID=52
 LC_FIELDS_TABLE_ID=54
 LC_SECTIONS_GROUP_ID=55
 LC_SECTIONS_TABLE_ID=56
+LC_DESC_TITLE_ID=57
+LC_DESC_TEXT_ID=58
+LC_HELP_BTN_ID=59
 
 DIS_EDITOR_ID=60
-DIS_SEARCH_ID=61
+DIS_FILTER_ID=61
 DIS_PROGRESS_ID=62
+DIS_FUNCS_TABLE_ID=63
+DIS_STATUS_ID=64
 
 SYM_TABLE_ID=70
 SYM_FILTER_ID=71
 SYM_KIND_ID=72
 SYM_STATUS_ID=73
+SYM_HELP_BTN_ID=74
+SYM_DEMANGLE_ID=76
+SYM_LANG_ID=77
 
 SEC_SEG_PICKER_ID=90
 SEC_SECT_PICKER_ID=91
@@ -66,7 +77,7 @@ SEC_PROGRESS_ID=94
 # Output size limits
 MAX_TEXT_LINES=20000
 MAX_SEARCH_LINES=200000
-MAX_TABLE_ROWS=5000
+MAX_TABLE_ROWS=50000
 
 # ──────────────────────────────────────────────────────────────
 # Debug logging — enabled by `touch /tmp/otool-debug-on`,
@@ -99,6 +110,21 @@ state_dir() {
 
 current_binary() { /bin/cat "$(state_dir)/current.txt" 2>/dev/null; }
 current_arch()   { /bin/cat "$(state_dir)/arch.txt" 2>/dev/null; }
+
+# True (0) when Apple's command-line tools (otool/nm/lipo) are installed and
+# usable. The whole app is built on them, but /usr/bin/otool etc. are only
+# xcode-select stubs — without the Command Line Tools (or Xcode) they fail and
+# pop the system "install developer tools" dialog. This check stays GUI-safe by
+# using only `xcode-select -p` + a filesystem test: it never invokes the bare
+# stub, so it cannot itself trigger that dialog when nothing is installed.
+tools_available() {
+    local dd otool
+    dd=$(/usr/bin/xcode-select -p 2>/dev/null) || return 1
+    [ -n "$dd" ] && [ -d "$dd" ] || return 1
+    # A developer dir is configured, so resolving a tool won't prompt to install.
+    otool=$(/usr/bin/xcrun -f otool 2>/dev/null) || return 1
+    [ -n "$otool" ] && [ -x "$otool" ]
+}
 current_tab() {
     local t
     t=$(/bin/cat "$(state_dir)/curtab.txt" 2>/dev/null)
@@ -124,6 +150,11 @@ set_value()   { "$dialog_tool" "$window_uuid" "$1" "$2"; }
 set_prop()    { "$dialog_tool" "$window_uuid" "$1" omc_set_property "$2" "$3"; }
 feed_table()  { "$dialog_tool" "$window_uuid" "$1" omc_table_set_rows_from_stdin; }
 clear_table() { printf "" | feed_table "$1"; }
+# Visually select a Table/List row by 0-based index. Fires no actionID, so the
+# selection-change handler is NOT invoked — the caller must update any detail
+# pane itself. Setting a Table's value would replace its rows, not move the
+# selection, which is why this dedicated verb exists.
+select_row()  { "$dialog_tool" "$window_uuid" "$1" omc_select_row "$2"; }
 set_window_title() { "$dialog_tool" "$window_uuid" omc_window "$1"; }
 
 set_enabled() {
@@ -275,8 +306,8 @@ tab_loader_for_index() {
         1) echo "OTool.headers.load" ;;
         2) echo "OTool.loadcmds.load" ;;
         3) echo "OTool.sections.load" ;;
-        4) echo "OTool.disasm.load" ;;
-        5) echo "OTool.symbols.load" ;;
+        4) echo "OTool.symbols.load" ;;
+        5) echo "OTool.disasm.load" ;;
         *) echo "" ;;
     esac
 }
@@ -437,6 +468,95 @@ parse_loadcmds() {
         if (p == 10) return "DriverKit"
         return "platform " p
     }
+    # ── numeric constant / enum decoders (portable: no gawk strtonum/and/or) ──
+    function hex2dec(s,   n, i, c, d) {
+        sub(/^0[xX]/, "", s)
+        n = 0
+        for (i = 1; i <= length(s); i++) {
+            c = tolower(substr(s, i, 1))
+            if      (c >= "0" && c <= "9") d = c + 0
+            else if (c == "a") d = 10
+            else if (c == "b") d = 11
+            else if (c == "c") d = 12
+            else if (c == "d") d = 13
+            else if (c == "e") d = 14
+            else if (c == "f") d = 15
+            else continue
+            n = n * 16 + d
+        }
+        return n
+    }
+    function bit(v, b) { return int(v / b) % 2 }
+    function vmprot(hex,   v) {
+        v = hex2dec(hex)
+        return (bit(v,1) ? "r" : "-") (bit(v,2) ? "w" : "-") (bit(v,4) ? "x" : "-")
+    }
+    function segflags(hex,   v, r) {
+        v = hex2dec(hex); r = ""
+        if (bit(v, 1))  r = r (r == "" ? "" : " ") "HIGHVM"
+        if (bit(v, 2))  r = r (r == "" ? "" : " ") "FVMLIB"
+        if (bit(v, 4))  r = r (r == "" ? "" : " ") "NORELOC"
+        if (bit(v, 8))  r = r (r == "" ? "" : " ") "PROTECTED_V1"
+        if (bit(v, 16)) r = r (r == "" ? "" : " ") "READ_ONLY"
+        return (r == "" ? "none" : r)
+    }
+    function sectype(t) {
+        if (t == 0)  return "Regular"
+        if (t == 1)  return "Zerofill"
+        if (t == 2)  return "C strings"
+        if (t == 3)  return "4-byte literals"
+        if (t == 4)  return "8-byte literals"
+        if (t == 5)  return "Literal pointers"
+        if (t == 6)  return "Non-lazy symbol pointers"
+        if (t == 7)  return "Lazy symbol pointers"
+        if (t == 8)  return "Symbol stubs"
+        if (t == 9)  return "Mod init func pointers"
+        if (t == 10) return "Mod term func pointers"
+        if (t == 11) return "Coalesced"
+        if (t == 12) return "GB zerofill"
+        if (t == 13) return "Interposing"
+        if (t == 14) return "16-byte literals"
+        if (t == 15) return "DTrace DOF"
+        if (t == 16) return "Lazy dylib symbol pointers"
+        if (t == 17) return "Thread-local regular"
+        if (t == 18) return "Thread-local zerofill"
+        if (t == 19) return "Thread-local variables"
+        if (t == 20) return "Thread-local var pointers"
+        if (t == 21) return "Thread-local init func pointers"
+        if (t == 22) return "Init func offsets"
+        return "type " t
+    }
+    function sectflags(hex,   v, a) {
+        v = hex2dec(hex); a = ""
+        if (int(v / 2147483648) % 2) a = a (a == "" ? "" : "+") "pure-instr"     # 0x80000000
+        if (int(v / 1073741824) % 2) a = a (a == "" ? "" : "+") "no-toc"         # 0x40000000
+        if (int(v / 268435456)  % 2) a = a (a == "" ? "" : "+") "no-dead-strip"  # 0x10000000
+        if (int(v / 67108864)   % 2) a = a (a == "" ? "" : "+") "self-modifying" # 0x04000000
+        if (int(v / 33554432)   % 2) a = a (a == "" ? "" : "+") "debug"          # 0x02000000
+        if (int(v / 1024)       % 2) a = a (a == "" ? "" : "+") "some-instr"     # 0x00000400
+        return sectype(v % 256) (a == "" ? "" : " (" a ")")
+    }
+    function buildtool(n) {
+        if (n == 1) return "clang"
+        if (n == 2) return "swift"
+        if (n == 3) return "ld"
+        if (n == 4) return "lld"
+        return "tool " n
+    }
+    # Append a decoded meaning to a raw field value where we recognize it
+    function annotate(key, val) {
+        if (key == "platform")
+            return val "   (" platname(val + 0) ")"
+        if (key == "tool" && cmdname == "LC_BUILD_VERSION")
+            return val "   (" buildtool(val + 0) ")"
+        if ((key == "maxprot" || key == "initprot") && cmdname ~ /^LC_SEGMENT/)
+            return val "   (" vmprot(val) ")"
+        if (key == "flags" && cmdname ~ /^LC_SEGMENT/)
+            return val "   (" segflags(val) ")"
+        if (key == "cryptid")
+            return val "   (" (val == "0" ? "not encrypted" : "encrypted") ")"
+        return val
+    }
     function make_summary(   s) {
         if (cmdname ~ /^LC_SEGMENT/) s = segname "  (" nsects " sections)"
         else if (cmdname ~ /DYLIB/) s = f["name"]
@@ -454,11 +574,13 @@ parse_loadcmds() {
         else s = ""
         return s
     }
-    function flush_section(   sf) {
+    function flush_section(   sf, fl) {
         if (mode != "sect") return
         if (s["sectname"] != "" && s["segname"] != "") {
             sf = dir "/sections-" s["segname"] ".tsv"
-            print s["sectname"] "\t" s["addr"] "\t" s["size"] "\t" s["offset"] "\t" s["align"] "\t" s["flags"] >> sf
+            fl = s["flags"]
+            if (fl != "") fl = fl "  (" sectflags(fl) ")"
+            print s["sectname"] "\t" s["addr"] "\t" s["size"] "\t" s["offset"] "\t" s["align"] "\t" fl >> sf
         }
         mode = "cmd"
     }
@@ -506,7 +628,7 @@ parse_loadcmds() {
             if (key == "cmd") cmdname = val
             if (key == "segname") segname = val
             if (key == "nsects") nsects = val
-            print key "\t" val >> (dir "/fields-" idx ".tsv")
+            print key "\t" annotate(key, val) >> (dir "/fields-" idx ".tsv")
             if (cmdname == "LC_RPATH" && key == "path")
                 print val >> (dir "/rpaths.txt")
         } else {
@@ -532,6 +654,97 @@ ensure_loadcmds_parsed() {
     otool_run -l "$bin" > "$dir/loadcmds_raw.txt" 2>/dev/null
     parse_loadcmds "$dir/loadcmds_raw.txt"
     echo "$sig" > "$dir/parse.sig"
+}
+
+# One-line plain-English description for a load command name.
+# Used by the Load Commands detail pane; the full HTML reference goes deeper.
+lc_description() {
+    case "$1" in
+    LC_SEGMENT|LC_SEGMENT_64)
+        echo "Defines a segment mapped into memory — its address range, file region, protections, and sections." ;;
+    LC_SYMTAB)
+        echo "Locates the symbol table (nlist entries) and the string table." ;;
+    LC_DYSYMTAB)
+        echo "Dynamic symbol table: groups local/defined/undefined symbols and indirect symbols for the dynamic linker." ;;
+    LC_LOAD_DYLIB)
+        echo "A dynamic library this binary links against (loaded at launch)." ;;
+    LC_LOAD_WEAK_DYLIB)
+        echo "A weakly-linked dynamic library — allowed to be missing at runtime." ;;
+    LC_REEXPORT_DYLIB)
+        echo "A dependent library whose symbols are re-exported as if they were defined here." ;;
+    LC_LOAD_UPWARD_DYLIB)
+        echo "An upward dependency, used to break a mutual link cycle between libraries." ;;
+    LC_LAZY_LOAD_DYLIB)
+        echo "A library loaded lazily, only when one of its symbols is first used." ;;
+    LC_ID_DYLIB)
+        echo "This file's own install name and version — it identifies this file as a dylib." ;;
+    LC_LOAD_DYLINKER)
+        echo "Path of the dynamic linker that loads this program (usually /usr/lib/dyld)." ;;
+    LC_ID_DYLINKER)
+        echo "Identifies this file as the dynamic linker and gives its install path." ;;
+    LC_DYLD_INFO|LC_DYLD_INFO_ONLY)
+        echo "Compressed dyld metadata: rebase, binding, weak/lazy binding, and exported symbols." ;;
+    LC_DYLD_CHAINED_FIXUPS)
+        echo "Modern chained-fixups format describing rebases and binds (replaces LC_DYLD_INFO)." ;;
+    LC_DYLD_EXPORTS_TRIE)
+        echo "Trie of exported symbols, used together with chained fixups." ;;
+    LC_UUID)
+        echo "Unique build identifier, used to match a binary with its debug symbols (dSYM)." ;;
+    LC_BUILD_VERSION)
+        echo "Target platform and the minimum OS / SDK version this was built against." ;;
+    LC_VERSION_MIN_MACOSX|LC_VERSION_MIN_IPHONEOS|LC_VERSION_MIN_TVOS|LC_VERSION_MIN_WATCHOS)
+        echo "Minimum OS version and SDK (older form, superseded by LC_BUILD_VERSION)." ;;
+    LC_SOURCE_VERSION)
+        echo "Version of the source code used to build this binary." ;;
+    LC_MAIN)
+        echo "Entry point: file offset of main() plus the initial stack size." ;;
+    LC_UNIXTHREAD)
+        echo "Initial thread register state and entry point (older executables)." ;;
+    LC_THREAD)
+        echo "Initial thread state, without allocating a stack." ;;
+    LC_FUNCTION_STARTS)
+        echo "Compressed table of function start addresses (used for symbolication)." ;;
+    LC_DATA_IN_CODE)
+        echo "Ranges of non-instruction data embedded inside code sections." ;;
+    LC_CODE_SIGNATURE)
+        echo "Location of the embedded code-signature blob." ;;
+    LC_ENCRYPTION_INFO|LC_ENCRYPTION_INFO_64)
+        echo "Range of the file encrypted by FairPlay DRM (cryptid 0 means not encrypted)." ;;
+    LC_SEGMENT_SPLIT_INFO)
+        echo "Info for splitting/rebasing the segment when building the dyld shared cache." ;;
+    LC_DYLIB_CODE_SIGN_DRS)
+        echo "Designated requirements of the linked libraries, recorded for code signing." ;;
+    LC_RPATH)
+        echo "A runpath search directory used to resolve @rpath-based library loads." ;;
+    LC_LINKER_OPTION)
+        echo "Linker options embedded by the compiler (e.g. -lfoo, -framework Bar)." ;;
+    LC_LINKER_OPTIMIZATION_HINT)
+        echo "Hints the linker uses to optimize instruction sequences." ;;
+    LC_NOTE)
+        echo "A named region of arbitrary data carried in the file." ;;
+    LC_TWOLEVEL_HINTS)
+        echo "Hints that speed up two-level-namespace symbol lookups." ;;
+    LC_PREBOUND_DYLIB)
+        echo "Prebinding information for a dependent library (legacy)." ;;
+    LC_ROUTINES|LC_ROUTINES_64)
+        echo "Address of a library initialization routine (legacy)." ;;
+    LC_SUB_FRAMEWORK)
+        echo "Marks this as a sub-framework of an umbrella framework." ;;
+    LC_SUB_UMBRELLA)
+        echo "Names an umbrella framework that re-exports this library." ;;
+    LC_SUB_CLIENT)
+        echo "Names a client allowed to link directly against this sub-framework." ;;
+    LC_SUB_LIBRARY)
+        echo "Names a sub-library of this umbrella library." ;;
+    LC_FILESET_ENTRY)
+        echo "An entry in a Mach-O fileset (e.g. inside a kernel collection)." ;;
+    LC_PREPAGE|LC_SYMSEG|LC_IDENT|LC_FVMFILE)
+        echo "Obsolete load command (legacy)." ;;
+    "")
+        echo "" ;;
+    *)
+        echo "Mach-O load command. See the Mach-O reference for details." ;;
+    esac
 }
 
 # ──────────────────────────────────────────────────────────────
@@ -578,6 +791,36 @@ lib_status_marker() {
 # ──────────────────────────────────────────────────────────────
 
 # display_section <segname> <sectname>
+# Reformat `otool -s` output into a canonical hex + ASCII dump (the ASCII gutter
+# otool omits). otool prints "<vmaddr> <byte> <byte> ..." in order, one byte per
+# hex pair, so we keep its real VM addresses and just append the printable-ASCII
+# rendering — no file-offset / fat-slice math needed. macOS awk lacks strtonum(),
+# so convert hex by hand.
+hex_ascii_dump() {
+    /usr/bin/awk '
+        function hv(c) { return index("0123456789abcdef", c) - 1 }
+        function byte(s,   t) { t = tolower(s); return hv(substr(t,1,1)) * 16 + hv(substr(t,2,1)) }
+        $1 ~ /^[0-9a-fA-F]+$/ && $2 ~ /^[0-9a-fA-F]+$/ && length($2) % 2 == 0 {
+            hex = ""; ascii = ""
+            for (i = 2; i <= NF; i++) {
+                tok = $i
+                # otool -s prints single bytes (x86_64) or little-endian words
+                # (arm64, e.g. 614d534e == bytes 4e 53 4d 61); walk each token
+                # right-to-left so the bytes come out in file order either way.
+                for (j = length(tok) - 1; j >= 1; j -= 2) {
+                    b = substr(tok, j, 2)
+                    hex = hex b " "
+                    v = byte(b)
+                    ascii = ascii ((v >= 32 && v < 127) ? sprintf("%c", v) : ".")
+                }
+            }
+            printf "%s  %-48s |%s|\n", $1, hex, ascii
+            next
+        }
+        { print }
+    '
+}
+
 display_section() {
     local seg="$1" sect="$2" dir bin out info
     dir=$(state_dir)
@@ -590,9 +833,10 @@ display_section() {
     if [ "$seg" = "__TEXT" ] && [ "$sect" = "__text" ]; then
         otool_run -tV "$bin" 2>&1 | /usr/bin/head -n "$MAX_TEXT_LINES" > "$dir/sections_out.txt"
     else
-        otool_run -s "$seg" "$sect" "$bin" 2>&1 | /usr/bin/head -n "$MAX_TEXT_LINES" > "$dir/sections_out.txt"
+        otool_run -s "$seg" "$sect" "$bin" 2>&1 | hex_ascii_dump | /usr/bin/head -n "$MAX_TEXT_LINES" > "$dir/sections_out.txt"
     fi
     set_value "$SEC_EDITOR_ID" "$(/bin/cat "$dir/sections_out.txt")"
+    dbg "section $seg,$sect -> sample: $(/usr/bin/sed -n '3p' "$dir/sections_out.txt")"
 
     info=$(/usr/bin/awk -F '\t' -v s="$sect" '$1 == s { print "addr: " $2 "   size: " $3; exit }' \
         "$dir/sections-$seg.tsv" 2>/dev/null)
@@ -628,6 +872,104 @@ populate_section_picker() {
 # Symbols tab: filtered table refresh
 # ──────────────────────────────────────────────────────────────
 
+# ──────────────────────────────────────────────────────────────
+# Symbol demangling (Symbols tab)
+# ──────────────────────────────────────────────────────────────
+
+# Classify a (linker-decorated) symbol name: prints  swift | c++ | c
+# On Darwin every symbol carries one extra leading underscore from the linker,
+# so C++ Itanium "_Z…" shows as "__Z…" and Swift "$s…" shows as "_$s…".
+symbol_language() {
+    case "$1" in
+        '_$s'*|'_$S'*|'_$e'*|'$s'*|'$S'*|'$e'*) echo swift ;;   # Swift 4.2+/5 mangling
+        '__Z'*|'_Z'*|'___Z'*)                   echo "c++" ;;   # Itanium C++ ABI
+        '_OBJC_'*|'__OBJC_'*)                    echo objc ;;   # Obj-C metadata symbols
+        '_objc_msgSend'*'$'*)                    echo objc ;;   # Obj-C selector stubs
+        *)                                       echo c ;;      # plain C (not mangled)
+    esac
+}
+
+# Human-readable label for a language code
+symbol_language_label() {
+    case "$1" in
+        swift) echo "Swift" ;;
+        "c++") echo "C++" ;;
+        objc)  echo "Obj-C" ;;
+        *)     echo "C" ;;
+    esac
+}
+
+# Locate the demangling tools at run time. Each prints the tool's path, or
+# nothing if it is not installed — so handlers can tell the user what to add.
+#   c++filt        ships with the Xcode Command Line Tools
+#   swift-demangle ships with Xcode / a Swift toolchain (found via xcrun)
+cxxfilt_tool() { [ -x "$CXXFILT" ] && printf '%s' "$CXXFILT"; }
+
+swift_demangle_tool() {
+    local sd
+    [ -x "$XCRUN" ] || return 0
+    sd=$("$XCRUN" -f swift-demangle 2>/dev/null) || return 0
+    [ -n "$sd" ] && [ -x "$sd" ] && printf '%s' "$sd"
+}
+
+# ── Objective-C "demangling" ───────────────────────────────────
+# Obj-C symbols aren't mangled, but the compiler/runtime name them by a fixed
+# convention (there is no official Obj-C demangler). Recognize the common shapes
+# and describe them in plain language. Names carry the Darwin leading underscore.
+objc_tail() { printf '%s' "${1##*\$_}"; }   # the name after the "$_" separator
+
+objc_demangle() {
+    local s="$1" t
+    case "$s" in
+        # Selector stubs (-fobjc-msgsend-selector-stubs): _objc_msgSend$selector
+        _objc_msgSendSuper2\$*|_objc_msgSendSuper\$*)
+            t=${s#*\$}; printf 'objc_msgSendSuper selector — %s' "${t%%\$_OBJC_CLASS_*}" ;;
+        _objc_msgSend*\$*)
+            t=${s#*\$}; printf 'objc_msgSend selector — %s' "${t%%\$_OBJC_CLASS_*}" ;;
+
+        # Class / metaclass objects and read-only metadata
+        _OBJC_CLASS_\$_*)          printf 'class object — %s' "$(objc_tail "$s")" ;;
+        _OBJC_METACLASS_\$_*)      printf 'metaclass — %s' "$(objc_tail "$s")" ;;
+        __OBJC_CLASS_RO_\$_*)      printf 'class metadata (RO) — %s' "$(objc_tail "$s")" ;;
+        __OBJC_METACLASS_RO_\$_*)  printf 'metaclass metadata (RO) — %s' "$(objc_tail "$s")" ;;
+        _OBJC_EHTYPE_\$_*)         printf 'exception type — %s' "$(objc_tail "$s")" ;;
+
+        # Ivar offset:  _OBJC_IVAR_$_Class.ivar
+        _OBJC_IVAR_\$_*)
+            t=$(objc_tail "$s")
+            printf 'ivar %s of class %s' "${t#*.}" "${t%%.*}" ;;
+
+        # Protocols (these use the "$_"-before-name form, so objc_tail extracts it)
+        _OBJC_PROTOCOL_\$_*|__OBJC_PROTOCOL_\$_*)
+            printf 'protocol — %s' "$(objc_tail "$s")" ;;
+        _OBJC_LABEL_PROTOCOL_\$_*|__OBJC_LABEL_PROTOCOL_\$_*)
+            printf 'protocol label — %s' "$(objc_tail "$s")" ;;
+        _OBJC_PROTOCOL_REFERENCE_\$_*|__OBJC_PROTOCOL_REFERENCE_\$_*)
+            printf 'protocol reference — %s' "$(objc_tail "$s")" ;;
+        _OBJC_CLASS_PROTOCOLS_\$_*|__OBJC_CLASS_PROTOCOLS_\$_*)
+            printf 'adopted protocols of %s' "$(objc_tail "$s")" ;;
+
+        # Method / property / ivar / protocol lists:  __OBJC_$_<KIND>_<Name>
+        __OBJC_\$_INSTANCE_METHODS_*)          printf 'instance methods of %s' "${s#__OBJC_\$_INSTANCE_METHODS_}" ;;
+        __OBJC_\$_CLASS_METHODS_*)             printf 'class methods of %s' "${s#__OBJC_\$_CLASS_METHODS_}" ;;
+        __OBJC_\$_INSTANCE_VARIABLES_*)        printf 'ivars of %s' "${s#__OBJC_\$_INSTANCE_VARIABLES_}" ;;
+        __OBJC_\$_PROP_LIST_*)                 printf 'properties of %s' "${s#__OBJC_\$_PROP_LIST_}" ;;
+        __OBJC_\$_CLASS_PROP_LIST_*)           printf 'class properties of %s' "${s#__OBJC_\$_CLASS_PROP_LIST_}" ;;
+        __OBJC_\$_CLASS_PROTOCOLS_*)           printf 'adopted protocols of %s' "${s#__OBJC_\$_CLASS_PROTOCOLS_}" ;;
+        __OBJC_\$_PROTOCOL_INSTANCE_METHODS_*) printf 'protocol instance methods of %s' "${s#__OBJC_\$_PROTOCOL_INSTANCE_METHODS_}" ;;
+        __OBJC_\$_PROTOCOL_CLASS_METHODS_*)    printf 'protocol class methods of %s' "${s#__OBJC_\$_PROTOCOL_CLASS_METHODS_}" ;;
+        __OBJC_\$_PROTOCOL_METHOD_TYPES_*)     printf 'protocol method types of %s' "${s#__OBJC_\$_PROTOCOL_METHOD_TYPES_}" ;;
+        __OBJC_\$_PROTOCOL_REFS_*)             printf 'incorporated protocols of %s' "${s#__OBJC_\$_PROTOCOL_REFS_}" ;;
+
+        # Categories:  __OBJC_$_CATEGORY[_<KIND>]_<Class>_$_<Category>
+        __OBJC_\$_CATEGORY_INSTANCE_METHODS_*) printf 'category instance methods' ;;
+        __OBJC_\$_CATEGORY_CLASS_METHODS_*)    printf 'category class methods' ;;
+        __OBJC_\$_CATEGORY_*)                  printf 'category metadata' ;;
+
+        *) printf 'Objective-C runtime symbol' ;;
+    esac
+}
+
 # refresh_symbols <query> <kind: all|defined|undef|indirect>
 refresh_symbols() {
     local q="$1" kind="$2" dir src total shown tmp
@@ -640,8 +982,9 @@ refresh_symbols() {
 
     tmp="$dir/symfilter.tsv"
     /usr/bin/awk -F '\t' -v kind="$kind" -v q="$(echo "$q" | /usr/bin/tr 'A-Z' 'a-z')" '
-        kind == "defined" && $2 ~ /^[Uu]$/ { next }
-        kind == "undef"   && $2 !~ /^[Uu]$/ { next }
+        kind == "defined"  && $2 ~ /^[Uu]$/ { next }
+        kind == "undef"    && $2 !~ /^[Uu]$/ { next }
+        kind == "exported" && ($2 !~ /^[A-Z]$/ || $2 == "U") { next }
         q != "" && index(tolower($0), q) == 0 { next }
         { print }
     ' "$src" > "$tmp"
@@ -654,4 +997,49 @@ refresh_symbols() {
         shown="$total"
     fi
     set_value "$SYM_STATUS_ID" "$shown of $total symbols"
+}
+
+# ──────────────────────────────────────────────────────────────
+# Disassembly (master/detail: function list -> scoped disassembly)
+# ──────────────────────────────────────────────────────────────
+
+# From otool -tV output ($1), emit one function name per line. A function begins
+# at a non-indented label line ("name:") immediately followed by an instruction
+# line ("hex<TAB>..."); that lookahead skips the "<path> (architecture x):" and
+# section headers, which also end in ":".
+disasm_build_funcs() {
+    /usr/bin/awk '
+        /^[0-9a-fA-F]+\t/ { if (pend != "") { print pend; pend = "" } next }
+        /^[^ \t].*:[ \t]*$/ { pend = $0; sub(/[ \t]*:[ \t]*$/, "", pend); next }
+        { pend = "" }
+    ' "$1"
+}
+
+# Print the disassembly block for exactly one function name ($2) out of file $1.
+disasm_extract_func() {
+    /usr/bin/awk -v want="$2" '
+        /^[^ \t].*:[ \t]*$/ {
+            nm = $0; sub(/[ \t]*:[ \t]*$/, "", nm)
+            if (inblk) exit                 # reached the next function
+            if (nm == want) { inblk = 1; print }
+            next
+        }
+        inblk { if ($0 ~ /^[0-9a-fA-F]+\t/) print; else exit }
+    ' "$1"
+}
+
+# Filter the cached function list by substring ($1) and feed the function table.
+refresh_disasm_funcs() {
+    local q="$1" dir tmp total shown
+    dir=$(state_dir)
+    [ -f "$dir/disasm_funcs.tsv" ] || return 1
+    tmp="$dir/disasm_funcs_filtered.tsv"
+    /usr/bin/awk -v q="$(echo "$q" | /usr/bin/tr 'A-Z' 'a-z')" '
+        q != "" && index(tolower($0), q) == 0 { next }
+        { print }
+    ' "$dir/disasm_funcs.tsv" > "$tmp"
+    total=$(/usr/bin/wc -l < "$tmp" | /usr/bin/tr -d ' ')
+    /usr/bin/head -n "$MAX_TABLE_ROWS" "$tmp" | feed_table "$DIS_FUNCS_TABLE_ID"
+    if [ "$total" -gt "$MAX_TABLE_ROWS" ]; then shown="$MAX_TABLE_ROWS"; else shown="$total"; fi
+    set_value "$DIS_STATUS_ID" "$shown of $total functions"
 }

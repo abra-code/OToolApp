@@ -146,23 +146,6 @@
         {
           "type": "Tab",
           "properties": {
-            "title": "Disasm",
-            "systemImage": "cpu",
-            "actionID": "OTool.tab.changed"
-          },
-          "content": {
-            "type": "LoadableView",
-            "id": 304,
-            "properties": {
-              "name": "TabDisasm.json",
-              "viewDidLoadActionID": "OTool.disasm.load"
-            }
-          },
-          "id": 405
-        },
-        {
-          "type": "Tab",
-          "properties": {
             "title": "Symbols",
             "systemImage": "textformat.abc",
             "actionID": "OTool.tab.changed"
@@ -173,6 +156,23 @@
             "properties": {
               "name": "TabSymbols.json",
               "viewDidLoadActionID": "OTool.symbols.load"
+            }
+          },
+          "id": 405
+        },
+        {
+          "type": "Tab",
+          "properties": {
+            "title": "Disassemble",
+            "systemImage": "cpu",
+            "actionID": "OTool.tab.changed"
+          },
+          "content": {
+            "type": "LoadableView",
+            "id": 304,
+            "properties": {
+              "name": "TabDisasm.json",
+              "viewDidLoadActionID": "OTool.disasm.load"
             }
           },
           "id": 406

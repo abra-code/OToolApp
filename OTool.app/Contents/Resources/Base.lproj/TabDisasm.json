@@ -24,15 +24,24 @@
           "type": "TextField",
           "id": 61,
           "properties": {
-            "prompt": "Show function matching symbol… (Return; empty restores all)",
-            "actionID": "OTool.disasm.search",
+            "prompt": "Filter functions…",
+            "valueChangeActionID": "OTool.disasm.filter",
             "frame": {
-              "maxWidth": 360
+              "maxWidth": 300
             }
           }
         },
         {
           "type": "Spacer"
+        },
+        {
+          "type": "Text",
+          "id": 64,
+          "properties": {
+            "text": "",
+            "font": "caption",
+            "foregroundStyle": "secondary"
+          }
         },
         {
           "type": "ProgressView",
@@ -45,19 +54,58 @@
       ]
     },
     {
-      "type": "TextEditor",
-      "id": 60,
+      "type": "HStack",
       "properties": {
-        "readOnly": true,
-        "font": {
-          "name": "Menlo",
-          "size": 11
-        },
+        "spacing": 0,
         "frame": {
           "maxWidth": "infinity",
           "maxHeight": "infinity"
         }
-      }
+      },
+      "children": [
+        {
+          "type": "Table",
+          "id": 63,
+          "properties": {
+            "actionID": "OTool.disasm.selected",
+            "columns": [
+              "Function"
+            ],
+            "columnTypes": [
+              {
+                "viewType": "Text"
+              }
+            ],
+            "columnHeadersVisibility": "hidden",
+            "widths": [
+              280
+            ],
+            "minWidths": [
+              120
+            ],
+            "frame": {
+              "minWidth": 240,
+              "maxWidth": 340,
+              "maxHeight": "infinity"
+            }
+          }
+        },
+        {
+          "type": "TextEditor",
+          "id": 60,
+          "properties": {
+            "readOnly": true,
+            "font": {
+              "name": "Menlo",
+              "size": 11
+            },
+            "frame": {
+              "maxWidth": "infinity",
+              "maxHeight": "infinity"
+            }
+          }
+        }
+      ]
     }
   ]
 }

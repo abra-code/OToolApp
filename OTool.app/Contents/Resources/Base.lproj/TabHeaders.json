@@ -10,6 +10,28 @@
   },
   "children": [
     {
+      "type": "HStack",
+      "properties": {
+        "spacing": 8
+      },
+      "children": [
+        {
+          "type": "Spacer"
+        },
+        {
+          "type": "Button",
+          "id": 43,
+          "properties": {
+            "systemImage": "questionmark.circle",
+            "imageScale": "large",
+            "buttonStyle": "plain",
+            "help": "Open the Mach-O reference",
+            "actionID": "OTool.help"
+          }
+        }
+      ]
+    },
+    {
       "type": "GroupBox",
       "properties": {
         "title": "Mach-O Header"

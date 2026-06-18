@@ -46,6 +46,10 @@
                 "tag": "defined"
               },
               {
+                "title": "Exported",
+                "tag": "exported"
+              },
+              {
                 "title": "Undefined (imported)",
                 "tag": "undef"
               },
@@ -68,6 +72,17 @@
             "font": "caption",
             "foregroundStyle": "secondary"
           }
+        },
+        {
+          "type": "Button",
+          "id": 74,
+          "properties": {
+            "systemImage": "questionmark.circle",
+            "imageScale": "large",
+            "buttonStyle": "plain",
+            "help": "What do the Type letters (T, U, D…) mean?",
+            "actionID": "OTool.help"
+          }
         }
       ]
     },
@@ -75,6 +90,7 @@
       "type": "Table",
       "id": 70,
       "properties": {
+        "actionID": "OTool.symbols.selected",
         "columns": [
           "Address",
           "Type",
@@ -106,6 +122,51 @@
           120
         ]
       }
+    },
+    {
+      "type": "HStack",
+      "properties": {
+        "alignment": "firstTextBaseline",
+        "spacing": 8,
+        "padding": {
+          "leading": 10,
+          "trailing": 10,
+          "top": 4,
+          "bottom": 8
+        }
+      },
+      "children": [
+        {
+          "type": "Text",
+          "id": 77,
+          "properties": {
+            "text": "",
+            "font": "caption",
+            "foregroundStyle": "secondary",
+            "frame": {
+              "minWidth": 48,
+              "alignment": "leading"
+            }
+          }
+        },
+        {
+          "type": "Text",
+          "id": 76,
+          "properties": {
+            "text": "Select a symbol to see it demangled",
+            "textSelection": "enabled",
+            "font": {
+              "name": "Menlo",
+              "size": 11
+            },
+            "multilineTextAlignment": "leading",
+            "frame": {
+              "maxWidth": "infinity",
+              "alignment": "leading"
+            }
+          }
+        }
+      ]
     }
   ]
 }

@@ -76,12 +76,67 @@
       "properties": {
         "spacing": 8,
         "padding": 10,
+        "alignment": "leading",
         "frame": {
           "maxWidth": "infinity",
           "maxHeight": "infinity"
         }
       },
       "children": [
+        {
+          "type": "HStack",
+          "properties": {
+            "spacing": 8,
+            "alignment": "top"
+          },
+          "children": [
+            {
+              "type": "VStack",
+              "properties": {
+                "spacing": 2,
+                "alignment": "leading",
+                "frame": {
+                  "maxWidth": "infinity",
+                  "alignment": "leading"
+                }
+              },
+              "children": [
+                {
+                  "type": "Text",
+                  "id": 57,
+                  "properties": {
+                    "text": "",
+                    "font": "headline"
+                  }
+                },
+                {
+                  "type": "Text",
+                  "id": 58,
+                  "properties": {
+                    "text": "Select a load command to see what it does.",
+                    "foregroundStyle": "secondary",
+                    "multilineTextAlignment": "leading",
+                    "frame": {
+                      "maxWidth": "infinity",
+                      "alignment": "leading"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "Button",
+              "id": 59,
+              "properties": {
+                "systemImage": "questionmark.circle",
+                "imageScale": "large",
+                "buttonStyle": "plain",
+                "help": "Open the Mach-O reference for this load command",
+                "actionID": "OTool.help"
+              }
+            }
+          ]
+        },
         {
           "type": "GroupBox",
           "id": 53,
@@ -141,7 +196,7 @@
                   150,
                   60,
                   55,
-                  90
+                  200
                 ],
                 "frame": {
                   "maxWidth": "infinity",

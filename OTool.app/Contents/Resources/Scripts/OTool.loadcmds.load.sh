@@ -15,5 +15,8 @@ set_value "$LC_FILTER_ID" ""
 feed_table "$LC_TABLE_ID" < "$dir/cmds.tsv"
 clear_table "$LC_FIELDS_TABLE_ID"
 set_visible "$LC_SECTIONS_GROUP_ID" 0
+set_value "$LC_DESC_TITLE_ID" ""
+set_value "$LC_DESC_TEXT_ID" "Select a load command to see what it does."
+/bin/rm -f "$dir/selected_lc.txt"
 
 mark_loaded loadcmds

@@ -9,8 +9,8 @@ case "$(current_tab)" in
     1) f="$dir/headers_raw.txt" ;;
     2) f="$dir/loadcmds_raw.txt" ;;
     3) f="$dir/sections_out.txt" ;;
-    4) f="$dir/disasm_raw.txt" ;;
-    5) f="$dir/symbols_raw.txt" ;;
+    4) f="$dir/symbols_raw.txt" ;;
+    5) f="$dir/disasm_raw.txt" ;;
     *) exit 0 ;;
 esac
 

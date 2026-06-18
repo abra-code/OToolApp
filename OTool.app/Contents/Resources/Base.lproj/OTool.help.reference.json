@@ -1,0 +1,26 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 0,
+    "frame": {
+      "minWidth": 600,
+      "minHeight": 420,
+      "idealWidth": 820,
+      "idealHeight": 720
+    }
+  },
+  "children": [
+    {
+      "type": "WebView",
+      "id": 2,
+      "properties": {
+        "backForwardNavigationGestures": true,
+        "magnificationGestures": true,
+        "frame": {
+          "maxWidth": "infinity",
+          "maxHeight": "infinity"
+        }
+      }
+    }
+  ]
+}

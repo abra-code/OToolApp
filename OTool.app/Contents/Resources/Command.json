@@ -109,13 +109,20 @@
     },
     {
       "NAME": "OTool",
-      "NOTES": "Disassembly tab: otool -tV (lazy)",
+      "NOTES": "Disassembly tab: otool -tV once, build the function list (lazy)",
       "COMMAND_ID": "OTool.disasm.load",
       "EXECUTION_MODE": "exe_script_file"
     },
     {
       "NAME": "OTool",
-      "COMMAND_ID": "OTool.disasm.search",
+      "NOTES": "Disassembly tab: filter the function list (debounced)",
+      "COMMAND_ID": "OTool.disasm.filter",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "NOTES": "Disassembly tab: show the selected function's scoped disassembly",
+      "COMMAND_ID": "OTool.disasm.selected",
       "EXECUTION_MODE": "exe_script_file"
     },
     {
@@ -131,12 +138,42 @@
     },
     {
       "NAME": "OTool",
+      "NOTES": "Symbols tab: demangle the selected symbol into the read-only field below the table",
+      "COMMAND_ID": "OTool.symbols.selected",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
       "COMMAND_ID": "OTool.reveal.finder",
       "EXECUTION_MODE": "exe_script_file"
     },
     {
       "NAME": "OTool",
       "COMMAND_ID": "OTool.copy.output",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "NOTES": "Help (?) button: open the Mach-O reference deep-linked to the current context",
+      "COMMAND_ID": "OTool.help",
+      "EXECUTION_MODE": "exe_script_file"
+    },
+    {
+      "NAME": "OTool",
+      "NOTES": "Mach-O reference: non-blocking WebView window showing the bundled HTML guide",
+      "COMMAND_ID": "OTool.help.reference",
+      "EXECUTION_MODE": "exe_script_file",
+      "ACTIONUI_WINDOW": {
+        "JSON_NAME": "OTool.help.reference",
+        "IS_BLOCKING": false,
+        "INIT_SUBCOMMAND_ID": "OTool.help.init",
+        "WINDOW_TITLE": "Mach-O Reference"
+      }
+    },
+    {
+      "NAME": "OTool",
+      "NOTES": "Reference window init: load the bundled HTML at the requested anchor",
+      "COMMAND_ID": "OTool.help.init",
       "EXECUTION_MODE": "exe_script_file"
     },
     {

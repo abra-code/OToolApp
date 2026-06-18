@@ -81,6 +81,17 @@
             "controlSize": "small",
             "hidden": true
           }
+        },
+        {
+          "type": "Button",
+          "id": 95,
+          "properties": {
+            "systemImage": "questionmark.circle",
+            "imageScale": "large",
+            "buttonStyle": "plain",
+            "help": "Open the Mach-O reference",
+            "actionID": "OTool.help"
+          }
         }
       ]
     },
