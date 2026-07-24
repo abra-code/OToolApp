@@ -10,8 +10,6 @@ A native macOS GUI front-end for `otool` — a structured, searchable Mach-O bin
 
 Drop a file or bundle onto the OTool app icon (or use Finder's Open With); each dropped item opens its own independent window. Launching OTool plain presents an open panel instead. The window discovers every Mach-O binary inside the dropped item, lists them in a searchable left sidebar, and shows structured `otool` output for the selected binary on the right. For fat (universal) binaries, an architecture picker selects which slice to inspect.
 
-OTool is built on the [OMC](https://abracode.com) framework with an ActionUI declarative UI engine. The UI is defined in `Contents/Resources/Base.lproj/` (`OTool.json` plus one JSON per tab); all logic runs as shell scripts in `Contents/Resources/Scripts/`, driving the standard command-line tools and streaming results back into the window.
-
 ---
 
 ## Requirements
