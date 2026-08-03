@@ -74,9 +74,17 @@ SEC_EDITOR_ID=92
 SEC_STATUS_ID=93
 SEC_PROGRESS_ID=94
 
-# Output size limits
+# Output size limits.
+#   MAX_TEXT_LINES   how much text a single editor pane renders at once
+#   MAX_SEARCH_LINES how much `otool -tV` output is cached for the Disasm tab.
+#                    This bounds the function list, so it must be generous: at
+#                    the old 200k a normal 16 MB framework lost 70% of its
+#                    functions (9056 -> 2761). Measured cost at 2M lines: ~0.7 s
+#                    to produce, ~1.2 s to index, ~1.5 s worst-case extract.
+#   MAX_TABLE_ROWS   how many rows are fed to a table (filtering sees them all)
+# Whenever a limit actually truncates, the tab's status line must say so.
 MAX_TEXT_LINES=20000
-MAX_SEARCH_LINES=200000
+MAX_SEARCH_LINES=2000000
 MAX_TABLE_ROWS=50000
 
 # ──────────────────────────────────────────────────────────────
@@ -147,6 +155,16 @@ wait_for_discovery() {
 # ──────────────────────────────────────────────────────────────
 
 set_value()   { "$dialog_tool" "$window_uuid" "$1" "$2"; }
+
+# Same as set_value but reads the value from stdin. Large text (section dumps,
+# disassembly listings) must NOT travel through argv: execve caps the whole
+# argument list at ARG_MAX (1 MB), and a full-width hex dump of a 320 KB section
+# is already 1.7 MB. set_value would then fail with "Argument list too long",
+# the tool would never run, and the pane would silently keep its previous
+# contents. stdin has no such limit - it is the same transport that already
+# carries multi-megabyte symbol tables into the tables.
+set_value_stdin() { "$dialog_tool" "$window_uuid" "$1" omc_set_value_from_stdin; }
+
 set_prop()    { "$dialog_tool" "$window_uuid" "$1" omc_set_property "$2" "$3"; }
 feed_table()  { "$dialog_tool" "$window_uuid" "$1" omc_table_set_rows_from_stdin; }
 clear_table() { printf "" | feed_table "$1"; }
@@ -231,16 +249,6 @@ json_array() {
 # Binary inspection helpers
 # ──────────────────────────────────────────────────────────────
 
-# True if file starts with a Mach-O or fat magic
-is_macho() {
-    local m
-    m=$(/usr/bin/od -An -tx1 -N4 "$1" 2>/dev/null | /usr/bin/tr -d ' \n')
-    case "$m" in
-        feedface|cefaedfe|feedfacf|cffaedfe|cafebabe|bebafeca|cafebabf|bfbafeca) return 0 ;;
-    esac
-    return 1
-}
-
 # Echo lowercase Mach-O file type: execute / dylib / bundle / object / ...
 classify_binary() {
     "$OTOOL" -hv "$1" 2>/dev/null | /usr/bin/awk '
@@ -289,8 +297,22 @@ otool_run() {
 # ──────────────────────────────────────────────────────────────
 
 tab_sig()    { echo "$(current_binary)|$(current_arch)"; }
-mark_loaded() { tab_sig > "$(state_dir)/loaded-$1.sig"; }
+
+# mark_loaded <tab-key> <signature>
+# The signature MUST be the one captured when the loader started, not read live
+# here. OMC does not serialize handler scripts: if the user switches binary or
+# arch while a slow loader is still running, that loader is superseded but keeps
+# running. Stamping the live signature would pair the OLD binary's output with
+# the NEW binary's identity, and tab_fresh would then report the tab as
+# populated when what is on screen belongs to a different binary.
+mark_loaded() { printf '%s\n' "$2" > "$(state_dir)/loaded-$1.sig"; }
 clear_loaded() { /bin/rm -f "$(state_dir)"/loaded-*.sig; }
+
+# True while the loader that captured <signature> is still the relevant one.
+# Loaders call this after their expensive otool/nm work and before touching the
+# UI, so a superseded loader exits instead of painting stale output over the
+# binary the user actually selected.
+still_current() { [ "$(tab_sig)" = "$1" ]; }
 
 # True if tab <key> is already populated for the current binary+arch
 tab_fresh() {
@@ -325,7 +347,7 @@ reload_current_tab() {
 # ──────────────────────────────────────────────────────────────
 
 update_binary_header() {
-    local bin dir type archs count arch saved
+    local bin dir type archs count arch saved host
     bin=$(current_binary)
     dir=$(state_dir)
     if [ -z "$bin" ]; then
@@ -568,6 +590,9 @@ parse_loadcmds() {
             s = platname(f["platform"] + 0) "  minos " f["minos"] "  sdk " f["sdk"]
         else if (cmdname ~ /^LC_VERSION_MIN/) s = "version " f["version"] "  sdk " f["sdk"]
         else if (cmdname == "LC_SYMTAB") s = f["nsyms"] " symbols"
+        else if (cmdname == "LC_DYSYMTAB")
+            s = f["nlocalsym"] " local, " f["nextdefsym"] " defined, " f["nundefsym"] " undefined"
+        else if (cmdname ~ /DYLINKER/) s = f["name"]
         else if (cmdname ~ /^LC_ENCRYPTION_INFO/)
             s = "cryptid " f["cryptid"] (f["cryptid"] == "0" ? "  (not encrypted)" : "")
         else if (f["dataoff"] != "") s = "dataoff " f["dataoff"]  "  size " f["datasize"]
@@ -641,19 +666,74 @@ parse_loadcmds() {
     ' "$raw"
 }
 
-# Run + parse otool -l for the current binary/arch unless already cached
+# Run + parse otool -l for the current binary/arch unless already cached.
+#
+# Serialized with an atomic mkdir lock. The Libraries, Load Commands and
+# Sections loaders all call this, and OMC runs every viewDidLoad handler as its
+# own unserialized /bin/sh, so at window open three of them arrive here at once.
+# parse_loadcmds starts with `rm -f` and then rebuilds the TSVs by APPENDING, so
+# unsynchronized runs interleave: one process deletes the file another is still
+# writing, and the survivors end up doubled or tripled (measured on a 339 MB
+# binary: 177 load-command rows instead of 59). The plain parse.sig check is a
+# TOCTOU and cannot prevent this on its own.
 ensure_loadcmds_parsed() {
-    local dir bin sig
+    local dir bin sig lock waited holder
     dir=$(state_dir)
     bin=$(current_binary)
     [ -z "$bin" ] && return 1
     sig=$(tab_sig)
+    lock="$dir/parse.lock"
+
+    waited=0
+    while ! /bin/mkdir "$lock" 2>/dev/null; do
+        # Someone else is parsing. If they were parsing what we need, we are done.
+        if [ -f "$dir/parse.sig" ] && [ "$(/bin/cat "$dir/parse.sig")" = "$sig" ]; then
+            return 0
+        fi
+
+        # Recover from a holder that died between mkdir and rmdir (crash, Force
+        # Quit, OOM kill). Without this the lock is never released and every
+        # later call in this window stalls for a minute and then gives up in
+        # silence, leaving Load Commands empty, Sections claiming "No segments
+        # found", and Libraries unable to resolve @rpath - for the rest of the
+        # window's life. The pid is re-read before breaking so we can never tear
+        # down a lock that has meanwhile been handed to a living holder.
+        holder=$(/bin/cat "$lock/pid" 2>/dev/null)
+        if [ -n "$holder" ] && ! /bin/kill -0 "$holder" 2>/dev/null &&
+           [ "$holder" = "$(/bin/cat "$lock/pid" 2>/dev/null)" ]; then
+            dbg "breaking parse lock left by dead pid $holder"
+            /bin/rm -rf "$lock"
+        elif [ -z "$holder" ] && [ $waited -gt 100 ]; then
+            # No owner was ever recorded: the holder died in the microseconds
+            # between creating the directory and writing its pid.
+            dbg "breaking ownerless parse lock"
+            /bin/rm -rf "$lock"
+        fi
+
+        waited=$((waited + 1))
+        [ $waited -ge 600 ] && { dbg "parse lock timeout"; return 1; }
+        /bin/sleep 0.1
+    done
+    echo $$ > "$lock/pid"
+
+    # Re-check under the lock: the holder we waited for may have parsed exactly
+    # what we wanted between our last poll and acquiring the lock.
     if [ -f "$dir/parse.sig" ] && [ "$(/bin/cat "$dir/parse.sig")" = "$sig" ]; then
+        /bin/rm -rf "$lock"
         return 0
     fi
-    otool_run -l "$bin" > "$dir/loadcmds_raw.txt" 2>/dev/null
+
+    # Drop the stale signature first: if we die mid-parse, the next caller must
+    # see "not parsed" rather than trust half-written TSVs.
+    /bin/rm -f "$dir/parse.sig"
+    # The lock keeps other parsers out, but Copy reads loadcmds_raw.txt without
+    # taking it, so publish the file in one atomic step rather than letting a
+    # click land on a half-written one.
+    otool_run -l "$bin" > "$dir/loadcmds_raw.txt.$$" 2>/dev/null
+    /bin/mv "$dir/loadcmds_raw.txt.$$" "$dir/loadcmds_raw.txt"
     parse_loadcmds "$dir/loadcmds_raw.txt"
     echo "$sig" > "$dir/parse.sig"
+    /bin/rm -rf "$lock"
 }
 
 # One-line plain-English description for a load command name.
@@ -822,7 +902,7 @@ hex_ascii_dump() {
 }
 
 display_section() {
-    local seg="$1" sect="$2" dir bin out info
+    local seg="$1" sect="$2" dir bin info total
     dir=$(state_dir)
     bin=$(current_binary)
     if [ -z "$bin" ] || [ -z "$seg" ] || [ -z "$sect" ]; then
@@ -830,16 +910,31 @@ display_section() {
     fi
 
     set_visible "$SEC_PROGRESS_ID" 1
+    # Keep the complete output (that is what Copy hands over) and render only the
+    # first MAX_TEXT_LINES of it, so the cap is a display limit rather than a
+    # silent data loss.
+    #
+    # Built under a private name and moved into place at the end. Handlers are not
+    # serialized, so two rapid picker changes put two of these in flight at once;
+    # writing the shared path directly would let one truncate the file the other
+    # is still producing, and the survivor would render a spliced dump.
     if [ "$seg" = "__TEXT" ] && [ "$sect" = "__text" ]; then
-        otool_run -tV "$bin" 2>&1 | /usr/bin/head -n "$MAX_TEXT_LINES" > "$dir/sections_out.txt"
+        otool_run -tV "$bin" > "$dir/sections_full.txt.$$" 2>&1
     else
-        otool_run -s "$seg" "$sect" "$bin" 2>&1 | hex_ascii_dump | /usr/bin/head -n "$MAX_TEXT_LINES" > "$dir/sections_out.txt"
+        otool_run -s "$seg" "$sect" "$bin" 2>&1 | hex_ascii_dump > "$dir/sections_full.txt.$$"
     fi
-    set_value "$SEC_EDITOR_ID" "$(/bin/cat "$dir/sections_out.txt")"
-    dbg "section $seg,$sect -> sample: $(/usr/bin/sed -n '3p' "$dir/sections_out.txt")"
+    total=$(/usr/bin/wc -l < "$dir/sections_full.txt.$$" | /usr/bin/tr -d ' ')
+    /usr/bin/head -n "$MAX_TEXT_LINES" "$dir/sections_full.txt.$$" > "$dir/sections_out.txt.$$"
+    /bin/mv "$dir/sections_full.txt.$$" "$dir/sections_full.txt"
+    /bin/mv "$dir/sections_out.txt.$$" "$dir/sections_out.txt"
+    set_value_stdin "$SEC_EDITOR_ID" < "$dir/sections_out.txt"
+    dbg "section $seg,$sect -> $total lines, sample: $(/usr/bin/sed -n '3p' "$dir/sections_out.txt")"
 
     info=$(/usr/bin/awk -F '\t' -v s="$sect" '$1 == s { print "addr: " $2 "   size: " $3; exit }' \
         "$dir/sections-$seg.tsv" 2>/dev/null)
+    if [ "$total" -gt "$MAX_TEXT_LINES" ]; then
+        info="$info   (showing first $MAX_TEXT_LINES of $total lines - Copy gives all of it)"
+    fi
     set_value "$SEC_STATUS_ID" "$info"
     set_visible "$SEC_PROGRESS_ID" 0
 }
@@ -1003,43 +1098,77 @@ refresh_symbols() {
 # Disassembly (master/detail: function list -> scoped disassembly)
 # ──────────────────────────────────────────────────────────────
 
-# From otool -tV output ($1), emit one function name per line. A function begins
-# at a non-indented label line ("name:") immediately followed by an instruction
-# line ("hex<TAB>..."); that lookahead skips the "<path> (architecture x):" and
-# section headers, which also end in ":".
+# From otool -tV output ($1), emit "name<TAB>address" per function. A function
+# begins at a non-indented label line ("name:") immediately followed by an
+# instruction line ("hex<TAB>..."); that lookahead skips the
+# "<path> (architecture x):" and section headers, which also end in ":".
+#
+# The address is the second (hidden) table column and is what identifies a
+# function everywhere downstream. Names are NOT unique - a normal framework has
+# well over a hundred repeats (compiler-generated helpers such as
+# _block_destroy_helper appear dozens of times, and same-named static functions
+# from different translation units are ordinary C/C++) - so selecting by name
+# would always resolve to the first occurrence and make every later row
+# unreachable. Addresses within one slice are unique.
 disasm_build_funcs() {
     /usr/bin/awk '
-        /^[0-9a-fA-F]+\t/ { if (pend != "") { print pend; pend = "" } next }
+        /^[0-9a-fA-F]+\t/ { if (pend != "") { print pend "\t" $1; pend = "" } next }
         /^[^ \t].*:[ \t]*$/ { pend = $0; sub(/[ \t]*:[ \t]*$/, "", pend); next }
         { pend = "" }
     ' "$1"
 }
 
-# Print the disassembly block for exactly one function name ($2) out of file $1.
+# Print the disassembly block for the function starting at address $2 in file $1.
 disasm_extract_func() {
     /usr/bin/awk -v want="$2" '
         /^[^ \t].*:[ \t]*$/ {
-            nm = $0; sub(/[ \t]*:[ \t]*$/, "", nm)
             if (inblk) exit                 # reached the next function
-            if (nm == want) { inblk = 1; print }
+            pendraw = $0                    # candidate label, confirmed below
             next
         }
-        inblk { if ($0 ~ /^[0-9a-fA-F]+\t/) print; else exit }
+        /^[0-9a-fA-F]+\t/ {
+            if (pendraw != "") {
+                if ($1 == want) { print pendraw; inblk = 1 }
+                pendraw = ""
+            }
+            if (inblk) print
+            next
+        }
+        { if (inblk) exit; pendraw = "" }
     ' "$1"
 }
 
+# Look up the address of the first function named $1 in the cached list.
+# Used to re-locate a remembered selection after an arch switch, where the same
+# function lives at a different address.
+disasm_addr_for_name() {
+    /usr/bin/awk -F '\t' -v n="$1" '$1 == n { print $2; exit }' \
+        "$(state_dir)/disasm_funcs.tsv" 2>/dev/null
+}
+
 # Filter the cached function list by substring ($1) and feed the function table.
+# The status must never report the post-cap count as if it were the whole
+# binary, so it appends a warning whenever the loader recorded that otool -tV
+# output was truncated (disasm_truncated.txt). At the old 200k-line cap an
+# ordinary 16 MB framework silently lost 69% of its functions (9056 -> 2761)
+# while the status still claimed "2761 of 2761".
 refresh_disasm_funcs() {
-    local q="$1" dir tmp total shown
+    local q="$1" dir tmp total shown note
     dir=$(state_dir)
     [ -f "$dir/disasm_funcs.tsv" ] || return 1
     tmp="$dir/disasm_funcs_filtered.tsv"
-    /usr/bin/awk -v q="$(echo "$q" | /usr/bin/tr 'A-Z' 'a-z')" '
-        q != "" && index(tolower($0), q) == 0 { next }
+    # Match on the name column only - the address column is a hidden implementation
+    # detail and must not make unrelated rows match a typed query.
+    /usr/bin/awk -F '\t' -v q="$(echo "$q" | /usr/bin/tr 'A-Z' 'a-z')" '
+        q != "" && index(tolower($1), q) == 0 { next }
         { print }
     ' "$dir/disasm_funcs.tsv" > "$tmp"
     total=$(/usr/bin/wc -l < "$tmp" | /usr/bin/tr -d ' ')
     /usr/bin/head -n "$MAX_TABLE_ROWS" "$tmp" | feed_table "$DIS_FUNCS_TABLE_ID"
     if [ "$total" -gt "$MAX_TABLE_ROWS" ]; then shown="$MAX_TABLE_ROWS"; else shown="$total"; fi
-    set_value "$DIS_STATUS_ID" "$shown of $total functions"
+    note=""
+    if [ -f "$dir/disasm_truncated.txt" ]; then
+        note="   (disassembly capped at $MAX_SEARCH_LINES lines - list is incomplete)"
+    fi
+    set_value "$DIS_STATUS_ID" "$shown of $total functions$note"
 }

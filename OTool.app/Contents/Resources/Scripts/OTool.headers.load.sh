@@ -8,17 +8,35 @@ wait_for_discovery || { dbg "discovery timeout"; exit 0; }
 bin=$(current_binary)
 [ -z "$bin" ] && exit 0
 dir=$(state_dir)
+# Captured now, re-checked before any UI write (see still_current in lib)
+sig=$(tab_sig)
 
-otool_run -hv "$bin" > "$dir/headers_raw.txt" 2>&1
+# Private name until the guard passes: headers_raw.txt is what Copy hands over, so
+# a superseded run writing it directly could leave the previous binary's header
+# (or a byte-interleaved mix of two) behind the correct on-screen table.
+otool_run -hv "$bin" > "$dir/headers_raw.txt.$$" 2>&1
+archs=$(detect_architectures "$bin")
+count=$(echo "$archs" | /usr/bin/wc -w | /usr/bin/tr -d ' ')
+
+if ! still_current "$sig"; then
+    dbg "superseded, discarding"
+    /bin/rm -f "$dir/headers_raw.txt.$$"
+    exit 0
+fi
+/bin/mv "$dir/headers_raw.txt.$$" "$dir/headers_raw.txt"
 
 # Data row follows the "magic cputype ..." column header line:
 # MH_MAGIC_64  ARM64E  ALL  0x00  EXECUTE  21  3368  NOUNDEFS DYLDLINK TWOLEVEL PIE
 /usr/bin/awk '
     /^ *magic +cputype/ { hdr = 1; next }
     hdr {
+        subtype = $3
+        # otool -hv reports arm64e as cputype ARM64 + cpusubtype E, which alone
+        # reads as a meaningless single letter. Name it.
+        if ($2 == "ARM64" && $3 == "E") subtype = "E   (arm64e)"
         printf "Magic\t%s\n", $1
         printf "CPU Type\t%s\n", $2
-        printf "CPU Subtype\t%s\n", $3
+        printf "CPU Subtype\t%s\n", subtype
         printf "Capabilities\t%s\n", $4
         printf "File Type\t%s\n", $5
         printf "Load Commands\t%s\n", $6
@@ -31,8 +49,6 @@ otool_run -hv "$bin" > "$dir/headers_raw.txt" 2>&1
 ' "$dir/headers_raw.txt" | feed_table "$HDR_TABLE_ID"
 
 # Fat slices
-archs=$(detect_architectures "$bin")
-count=$(echo "$archs" | /usr/bin/wc -w | /usr/bin/tr -d ' ')
 if [ "$count" -gt 1 ]; then
     "$LIPO" -detailed_info "$bin" 2>/dev/null | /usr/bin/awk '
         function flush() {
@@ -50,4 +66,4 @@ else
     set_visible "$FAT_GROUP_ID" 0
 fi
 
-mark_loaded headers
+mark_loaded headers "$sig"

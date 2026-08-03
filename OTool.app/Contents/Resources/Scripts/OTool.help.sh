@@ -18,7 +18,9 @@ case "$(current_tab)" in
 esac
 
 # Hand the target anchor to the help window's init (it runs in a new window and
-# has no access to this window's per-drop state).
-printf '%s' "$anchor" > /tmp/otool-help-target
+# has no access to this window's per-drop state). Kept in the per-user temp dir
+# rather than /tmp, which is shared by every account on the machine, and swept
+# in app.will.terminate.sh alongside the other markers.
+printf '%s' "$anchor" > "${TMPDIR:-/tmp}/otool-help-target"
 
 "$next_cmd" "$cmd_guid" "OTool.help.reference"

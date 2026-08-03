@@ -8,15 +8,23 @@ wait_for_discovery || { dbg "discovery timeout"; exit 0; }
 bin=$(current_binary)
 [ -z "$bin" ] && exit 0
 dir=$(state_dir)
+# Captured now, re-checked before any UI write (see still_current in lib)
+sig=$(tab_sig)
 
 ensure_loadcmds_parsed
+
+still_current "$sig" || { dbg "superseded, discarding"; exit 0; }
 
 segs=$(/usr/bin/cut -f1 "$dir/segments.tsv" 2>/dev/null)
 if [ -z "$segs" ]; then
     set_prop "$SEC_SEG_PICKER_ID" "options" '[]'
     set_prop "$SEC_SECT_PICKER_ID" "options" '[]'
     set_value "$SEC_EDITOR_ID" "No segments found."
-    mark_loaded sections
+    set_value "$SEC_STATUS_ID" ""
+    # Drop the previous binary's dump, or Copy would still hand it over while the
+    # pane says there is nothing to show.
+    /bin/rm -f "$dir/sections_full.txt" "$dir/sections_out.txt"
+    mark_loaded sections "$sig"
     exit 0
 fi
 
@@ -31,4 +39,4 @@ echo "$seg" > "$dir/sections_seg.txt"
 sect=$(populate_section_picker "$seg")
 [ -n "$sect" ] && display_section "$seg" "$sect"
 
-mark_loaded sections
+mark_loaded sections "$sig"

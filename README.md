@@ -17,7 +17,7 @@ Drop a file or bundle onto the OTool app icon (or use Finder's Open With); each 
 | Requirement | Notes |
 |---|---|
 | macOS 14.6+ | Sonoma minimum |
-| Xcode Command Line Tools | Provides `otool`, `nm`, `lipo`, `size`, `swift-demangle`, and `c++filt`. Install with `xcode-select --install` (or a full Xcode). OTool bundles no binaries of its own. |
+| Xcode Command Line Tools | Provides `otool`, `nm`, `lipo`, `swift-demangle`, and `c++filt`. Install with `xcode-select --install` (or a full Xcode). OTool bundles none of the inspection tools - it drives the ones already on your system. |
 
 ---
 
@@ -34,16 +34,20 @@ Discovery lists regular Mach-O files only, so framework symlinks (for example `F
 
 ## Tabs
 
+In window order:
+
 | Tab | Shows | Underlying tool |
 |---|---|---|
 | **Libraries** | Linked dynamic libraries, the install name, and resolved `@rpath` / `@loader_path` references | `otool -L` / `-D` |
-| **Load Cmds** | Parsed load commands (segments, dylib references, version and entry-point info, and more) | `otool -l` |
 | **Headers** | Mach header flags and, for fat binaries, per-slice detail | `otool -hv`, `lipo -detailed_info` |
-| **Sections** | Segment / section contents; hex or disassembly for `__TEXT,__text` | `otool -s` / `-tV` |
-| **Disasm** | Disassembly of the text section | `otool -tV` |
+| **Load Commands** | Parsed load commands (segments, dylib references, version and entry-point info, and more), each with its fields decoded and a plain-English description | `otool -l` |
+| **Sections** | Segment / section contents as a hex + ASCII dump; disassembly for `__TEXT,__text` | `otool -s` / `-tV` |
 | **Symbols** | The symbol table and indirect (stub / GOT) symbols, filterable by All, Defined, Exported, Undefined (imported), or Indirect | `nm`, `otool -Iv` |
+| **Disassemble** | Function list on the left, the selected function's disassembly on the right | `otool -tV` |
 
-Every tab has a filter field for searching its output in real time. C++ and Swift symbol names are demangled with `c++filt` and `swift-demangle`. Output can be copied, and the selected binary revealed in Finder.
+The sidebar and the Load Commands, Symbols and Disassemble tabs each have a filter field that narrows their list as you type. Selecting a symbol demangles it below the table: C++ through `c++filt`, Swift through `swift-demangle`, and Objective-C runtime symbols described from their naming conventions. Output can be copied, and the selected binary revealed in Finder.
+
+Very large outputs are capped for display, and whenever that happens the tab's status line says so. **Copy** hands over the full output rather than the shortened view. (For a binary whose disassembly is enormous, the cached listing itself is bounded - the status line reports that too.)
 
 ---
 

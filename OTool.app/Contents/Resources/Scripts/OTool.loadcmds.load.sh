@@ -8,8 +8,12 @@ wait_for_discovery || { dbg "discovery timeout"; exit 0; }
 bin=$(current_binary)
 [ -z "$bin" ] && exit 0
 dir=$(state_dir)
+# Captured now, re-checked before any UI write (see still_current in lib)
+sig=$(tab_sig)
 
 ensure_loadcmds_parsed
+
+still_current "$sig" || { dbg "superseded, discarding"; exit 0; }
 
 set_value "$LC_FILTER_ID" ""
 feed_table "$LC_TABLE_ID" < "$dir/cmds.tsv"
@@ -19,4 +23,4 @@ set_value "$LC_DESC_TITLE_ID" ""
 set_value "$LC_DESC_TEXT_ID" "Select a load command to see what it does."
 /bin/rm -f "$dir/selected_lc.txt"
 
-mark_loaded loadcmds
+mark_loaded loadcmds "$sig"

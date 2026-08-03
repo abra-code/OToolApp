@@ -33,6 +33,17 @@
         },
         {
           "type": "Spacer"
+        },
+        {
+          "type": "Button",
+          "id": 33,
+          "properties": {
+            "systemImage": "questionmark.circle",
+            "imageScale": "large",
+            "buttonStyle": "plain",
+            "help": "Open the Mach-O reference",
+            "actionID": "OTool.help"
+          }
         }
       ]
     },

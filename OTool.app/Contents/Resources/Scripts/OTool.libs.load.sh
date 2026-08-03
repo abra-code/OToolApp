@@ -9,14 +9,27 @@ bin=$(current_binary)
 [ -z "$bin" ] && exit 0
 dir=$(state_dir)
 bindir=$(/usr/bin/dirname "$bin")
+# Captured now, re-checked before any UI write (see still_current in lib)
+sig=$(tab_sig)
 
 # rpaths.txt is needed for @rpath resolution
 ensure_loadcmds_parsed
 
-otool_run -L "$bin" > "$dir/libs_raw.txt" 2>&1
+# Private name until the guard passes: libs_raw.txt is what Copy hands over, so a
+# superseded run writing it directly could leave the previous binary's listing (or
+# a byte-interleaved mix of two) behind the correct on-screen table.
+otool_run -L "$bin" > "$dir/libs_raw.txt.$$" 2>&1
 
 # Install name (dylibs only): second line of otool -D
 install=$(otool_run -D "$bin" 2>/dev/null | /usr/bin/sed -n '2p')
+
+if ! still_current "$sig"; then
+    dbg "superseded, discarding"
+    /bin/rm -f "$dir/libs_raw.txt.$$"
+    exit 0
+fi
+/bin/mv "$dir/libs_raw.txt.$$" "$dir/libs_raw.txt"
+
 if [ -n "$install" ]; then
     set_value "$LIBS_INSTALL_NAME_ID" "Install name: $install"
 else
@@ -33,4 +46,4 @@ fi
     printf "%s\t%s\t%s\t%s\n" "$marker" "$path" "$compat" "$current"
 done | feed_table "$LIBS_TABLE_ID"
 
-mark_loaded libs
+mark_loaded libs "$sig"
