@@ -401,7 +401,7 @@ update_binary_header() {
 # binaries.tsv is written last (atomic mv) — it is the "discovery done"
 # signal that wait_for_discovery polls for.
 seed_window_state() {
-    local obj="$1" dir list main_exe exe first tmp_tsv
+    local obj="$1" dir list main_exe exe first tmp_tsv f
     dir=$(state_dir)
     echo "0" > "$dir/curtab.txt"
     echo "$obj" > "$dir/obj.txt"
